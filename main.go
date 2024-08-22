@@ -3,13 +3,30 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/jroimartin/gocui"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
-
-	"github.com/jroimartin/gocui"
 )
+
+func saveResponse(g *gocui.Gui, v *gocui.View) error {
+	responseView, err := g.View("response")
+	if err != nil {
+		return err
+	}
+
+	saveFileView, _ := g.View("saveModal")
+
+	saveFileName := saveFileView.Buffer()
+
+	responseBody := responseView.Buffer()
+
+	os.WriteFile(saveFileName, []byte(responseBody), 0644)
+
+	return nil
+}
 
 func nextView(g *gocui.Gui, v *gocui.View) error {
 	if v.Name() == "url" {
