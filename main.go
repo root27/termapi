@@ -11,6 +11,21 @@ import (
 	"strings"
 )
 
+const (
+	minWidth  = 80
+	minHeight = 24
+)
+
+var helpText = "Navigation: Tab: Next View | Send Request: Ctrl+S | Send New Request: Ctrl+R | Quit: Ctrl+C"
+
+var (
+	url      string
+	headers  string
+	body     string
+	method   string
+	filename string
+)
+
 func saveResponse(g *gocui.Gui, v *gocui.View) error {
 	responseView, err := g.View("response")
 	if err != nil {
@@ -19,11 +34,11 @@ func saveResponse(g *gocui.Gui, v *gocui.View) error {
 
 	saveFileView, _ := g.View("saveModal")
 
-	saveFileName := saveFileView.Buffer()
+	filename = saveFileView.Buffer()
 
 	responseBody := responseView.Buffer()
 
-	os.WriteFile(saveFileName, []byte(responseBody), 0644)
+	os.WriteFile(filename, []byte(responseBody), 0644)
 
 	return nil
 }
@@ -52,13 +67,6 @@ func nextView(g *gocui.Gui, v *gocui.View) error {
 	}
 	return nil
 }
-
-var (
-	url     string
-	headers string
-	body    string
-	method  string
-)
 
 func handleRequest(g *gocui.Gui, v *gocui.View) error {
 	urlView, err := g.View("url")
@@ -183,7 +191,28 @@ func layout(g *gocui.Gui) error {
 	g.Highlight = true
 	g.SelFgColor = gocui.ColorGreen
 
-	if v, err := g.SetView("url", 0, 0, maxX-150, 2); err != nil {
+	// Check if terminal size is below the minimum required dimensions
+	if maxX < minWidth || maxY < minHeight {
+		if v, err := g.SetView("error", 0, 0, maxX-1, maxY-1); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Title = "Error"
+			v.Wrap = true
+			v.Frame = true
+			v.Autoscroll = true
+			v.BgColor = gocui.ColorRed
+			v.FgColor = gocui.ColorWhite
+			v.Clear()
+			fmt.Fprintf(v, "Terminal size is too small! Please resize to at least %dx%d.", minWidth, minHeight)
+		}
+		return nil // Skip the regular layout if the terminal is too small
+	}
+
+	// Remove the error view if terminal is resized to a valid size
+	g.DeleteView("error")
+
+	if v, err := g.SetView("url", 0, 0, maxX/2-1, 2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -193,20 +222,17 @@ func layout(g *gocui.Gui) error {
 		if _, err := g.SetCurrentView("url"); err != nil {
 			return err
 		}
-
 	}
 
-	if v, err := g.SetView("method", 0, 3, maxX-150, 5); err != nil {
+	if v, err := g.SetView("method", 0, 3, maxX/2-1, 5); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-
 		v.Title = "Method"
 		v.Editable = true
-
 	}
 
-	if v, err := g.SetView("headers", 0, 6, maxX-150, 18); err != nil {
+	if v, err := g.SetView("headers", 0, 6, maxX/2-1, maxY/3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -215,7 +241,7 @@ func layout(g *gocui.Gui) error {
 		v.Autoscroll = true
 	}
 
-	if v, err := g.SetView("body", 0, 19, maxX-150, maxY-5); err != nil {
+	if v, err := g.SetView("body", 0, maxY/3+1, maxX/2-1, maxY-5); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -224,7 +250,7 @@ func layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "{}")
 	}
 
-	if v, err := g.SetView("response", maxX-149, 0, maxX-1, 28); err != nil {
+	if v, err := g.SetView("response", maxX/2, 0, maxX-1, maxY-5); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -232,7 +258,6 @@ func layout(g *gocui.Gui) error {
 		v.Wrap = true
 	}
 
-	// Help view - always visible at the bottom
 	if v, err := g.SetView("help", 0, maxY-4, maxX-1, maxY-1); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
@@ -240,8 +265,8 @@ func layout(g *gocui.Gui) error {
 		v.Title = "Help"
 		v.Wrap = true
 		v.Frame = true
-		v.Autoscroll = true
-		fmt.Fprintln(v, "Navigation: Tab: Next View | Send Request: Ctrl+S | Send New Request: Ctrl+R | Quit: Ctrl+C")
+
+		fmt.Fprintln(v, helpText)
 	}
 
 	return nil
@@ -271,6 +296,33 @@ func cleanFields(g *gocui.Gui, v *gocui.View) error {
 
 }
 
+func openModal(g *gocui.Gui, v *gocui.View) error {
+
+	maxX, maxY := g.Size()
+
+	modalWidth := 40
+	modalHeight := 3
+
+	startX := (maxX / 2) - (modalWidth / 2)
+	startY := (maxY / 2) - (modalHeight / 2)
+	endX := startX + modalWidth
+	endY := startY + modalHeight
+
+	if v, err := g.SetView("saveModal", startX, startY, endX, endY); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Title = "Save Response"
+		v.Editable = true
+		if _, err := g.SetCurrentView("saveModal"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
 func main() {
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
@@ -293,6 +345,11 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlS, gocui.ModNone, handleRequest); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyCtrlE, gocui.ModNone, openModal); err != nil {
+
 		log.Panicln(err)
 	}
 
