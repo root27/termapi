@@ -91,6 +91,17 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 
 	client := &http.Client{}
 
+	headersArray := []string{}
+
+	if headers != "" {
+
+		headersArray = strings.Split(headers, "\n")
+
+	}
+
+	//Clear Response View
+
+	responseView.Clear()
 	switch strings.TrimSpace(method) {
 	case "POST":
 
@@ -98,6 +109,15 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 
 		if requesterr != nil {
 			fmt.Fprintf(responseView, "Error: %s\n", err)
+		}
+
+		if len(headersArray) > 0 {
+
+			for _, header := range headersArray {
+
+				headerKeyValue := strings.Split(header, ":")
+				req.Header.Add(headerKeyValue[0], headerKeyValue[1])
+			}
 		}
 
 		response, responseerr := client.Do(req)
@@ -125,6 +145,14 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 			fmt.Fprintf(responseView, "Error: %s\n", err)
 		}
 
+		if len(headersArray) > 0 {
+
+			for _, header := range headersArray {
+
+				headerKeyValue := strings.Split(header, ":")
+				req.Header.Add(headerKeyValue[0], headerKeyValue[1])
+			}
+		}
 		response, err := client.Do(req)
 
 		if err != nil {
