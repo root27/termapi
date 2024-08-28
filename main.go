@@ -16,7 +16,7 @@ const (
 	minHeight = 24
 )
 
-var helpText = "Navigation: Tab: Next View | Send Request: Ctrl+S | Send New Request: Ctrl+R | Quit: Ctrl+C"
+var helpText = "Navigation: Tab: Next View | Send Request: Ctrl+S | Send New Request: Ctrl+R | Save Response: Ctrl+E | Quit: Ctrl+C"
 
 var (
 	url      string
@@ -34,11 +34,21 @@ func saveResponse(g *gocui.Gui, v *gocui.View) error {
 
 	saveFileView, _ := g.View("saveModal")
 
-	filename = saveFileView.Buffer()
+	filename = strings.TrimSpace(saveFileView.Buffer())
 
 	responseBody := responseView.Buffer()
 
 	os.WriteFile(filename, []byte(responseBody), 0644)
+
+	_ = g.DeleteView("saveModal")
+
+	_, err = g.SetCurrentView("url")
+
+	if err != nil {
+
+		return err
+
+	}
 
 	return nil
 }
@@ -117,6 +127,23 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 
 		if requesterr != nil {
 			fmt.Fprintf(responseView, "Error: %s\n", err)
+
+			break
+		}
+
+		if body == "" {
+
+			fmt.Fprintf(responseView, "Error: %s\n", "Body is required for this HTTP Method")
+
+			break
+		}
+
+		if url == "" {
+
+			fmt.Fprintf(responseView, "Error: %s\n", "Url can not be empty")
+
+			break
+
 		}
 
 		if len(headersArray) > 0 {
@@ -141,6 +168,7 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 		if bodyerr != nil {
 			fmt.Fprintf(responseView, "Error: %s\n", err)
 
+			break
 		}
 
 		fmt.Fprintf(responseView, "Status: %s\n\nResponse Body: %s\n", resStatus, resbody)
@@ -153,6 +181,13 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 			fmt.Fprintf(responseView, "Error: %s\n", err)
 		}
 
+		if url == "" {
+
+			fmt.Fprintf(responseView, "Error: %s\n", "Url can not be empty")
+
+			break
+
+		}
 		if len(headersArray) > 0 {
 
 			for _, header := range headersArray {
@@ -300,8 +335,8 @@ func openModal(g *gocui.Gui, v *gocui.View) error {
 
 	maxX, maxY := g.Size()
 
-	modalWidth := 40
-	modalHeight := 3
+	modalWidth := 50
+	modalHeight := 2
 
 	startX := (maxX / 2) - (modalWidth / 2)
 	startY := (maxY / 2) - (modalHeight / 2)
@@ -312,12 +347,26 @@ func openModal(g *gocui.Gui, v *gocui.View) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Title = "Save Response"
+
+		v.Wrap = true
+		v.Frame = true
+		v.Title = "Save Response (Enter to submit and Esc to quit)"
 		v.Editable = true
+
 		if _, err := g.SetCurrentView("saveModal"); err != nil {
 			return err
 		}
 	}
+
+	return nil
+
+}
+
+func closeModal(g *gocui.Gui, v *gocui.View) error {
+
+	g.DeleteView("saveModal")
+
+	_, _ = g.SetCurrentView("url")
 
 	return nil
 
@@ -335,6 +384,7 @@ func main() {
 
 	g.SetManagerFunc(layout)
 
+	g.InputEsc = true
 	// Keybinding to quit the application
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		log.Panicln(err)
@@ -357,6 +407,13 @@ func main() {
 		log.Panicln(err)
 	}
 
+	if err := g.SetKeybinding("saveModal", gocui.KeyEnter, gocui.ModNone, saveResponse); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("saveModal", gocui.KeyEsc, gocui.ModNone, closeModal); err != nil {
+		log.Panicln(err)
+	}
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
