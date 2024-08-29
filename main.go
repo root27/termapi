@@ -27,6 +27,7 @@ var (
 )
 
 func saveResponse(g *gocui.Gui, v *gocui.View) error {
+
 	responseView, err := g.View("response")
 	if err != nil {
 		return err
@@ -38,17 +39,11 @@ func saveResponse(g *gocui.Gui, v *gocui.View) error {
 
 	responseBody := responseView.Buffer()
 
-	os.WriteFile(filename, []byte(responseBody), 0644)
+	_ = os.WriteFile(filename, []byte(responseBody), 0644)
 
 	_ = g.DeleteView("saveModal")
 
-	_, err = g.SetCurrentView("url")
-
-	if err != nil {
-
-		return err
-
-	}
+	g.SetCurrentView("url")
 
 	return nil
 }
@@ -131,13 +126,6 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 			break
 		}
 
-		if body == "" {
-
-			fmt.Fprintf(responseView, "Error: %s\n", "Body is required for this HTTP Method")
-
-			break
-		}
-
 		if url == "" {
 
 			fmt.Fprintf(responseView, "Error: %s\n", "Url can not be empty")
@@ -159,6 +147,8 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 
 		if responseerr != nil {
 			fmt.Fprintf(responseView, "Error: %s\n", err)
+
+			break
 		}
 
 		resStatus := response.Status
