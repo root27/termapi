@@ -15,4 +15,8 @@ You can find key shortcuts in the table below.
 | `Tab`| `Next view`|
 | `Esc`| `Close the save modal`|
 
+## Binaries
+
+You can find binary releases [here]("https://github.com/root27/termapi/releases")
+
 
