@@ -17,6 +17,6 @@ You can find key shortcuts in the table below.
 
 ## Binaries
 
-You can find binary releases [here]("https://github.com/root27/termapi/releases")
+You can find binary releases [here](https://github.com/root27/termapi/releases)
 
 
