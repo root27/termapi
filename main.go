@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/jroimartin/gocui"
 	"io"
 	"log"
@@ -16,6 +17,13 @@ const (
 	minHeight = 24
 )
 
+// Colors
+
+var (
+	red    = color.New(color.FgRed).FprintfFunc()
+	green  = color.New(color.FgGreen).SprintFunc()
+	yellow = color.New(color.FgYellow).SprintFunc()
+)
 var helpText = "Navigation: Tab: Next View | Send Request: Ctrl+S | Send New Request: Ctrl+R | Save Response: Ctrl+E | Quit: Ctrl+C"
 
 var (
@@ -116,19 +124,19 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 
 	responseView.Clear()
 	switch strings.TrimSpace(method) {
-	case "POST":
+	case "POST", "PUT", "DELETE", "PATCH":
 
-		req, requesterr := http.NewRequest("POST", url, bytes.NewReader([]byte(body)))
+		req, requesterr := http.NewRequest(strings.TrimSpace(method), url, bytes.NewReader([]byte(body)))
 
 		if requesterr != nil {
-			fmt.Fprintf(responseView, "Error: %s\n", err)
+			red(responseView, "Error: %s\n", err)
 
 			break
 		}
 
 		if url == "" {
 
-			fmt.Fprintf(responseView, "Error: %s\n", "Url can not be empty")
+			red(responseView, "Error: %s\n", "Url can not be empty")
 
 			break
 
@@ -146,7 +154,7 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 		response, responseerr := client.Do(req)
 
 		if responseerr != nil {
-			fmt.Fprintf(responseView, "Error: %s\n", err)
+			red(responseView, "Error: %s\n", err)
 
 			break
 		}
@@ -156,24 +164,24 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 		resbody, bodyerr := io.ReadAll(response.Body)
 
 		if bodyerr != nil {
-			fmt.Fprintf(responseView, "Error: %s\n", err)
+			red(responseView, "Error: %s\n", err)
 
 			break
 		}
 
-		fmt.Fprintf(responseView, "Status: %s\n\nResponse Body: %s\n", resStatus, resbody)
+		fmt.Fprintf(responseView, "%s\n\n%s\n", yellow(resStatus), green(string(resbody)))
 
 	case "GET":
 
 		req, err := http.NewRequest("GET", url, nil)
 
 		if err != nil {
-			fmt.Fprintf(responseView, "Error: %s\n", err)
+			red(responseView, "Error: %s\n", err)
 		}
 
 		if url == "" {
 
-			fmt.Fprintf(responseView, "Error: %s\n", "Url can not be empty")
+			red(responseView, "Error: %s\n", "Url can not be empty")
 
 			break
 
@@ -189,7 +197,7 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 		response, err := client.Do(req)
 
 		if err != nil {
-			fmt.Fprintf(responseView, "Error: %s\n", err)
+			red(responseView, "Error: %s\n", err)
 		}
 
 		defer response.Body.Close()
@@ -198,13 +206,13 @@ func handleRequest(g *gocui.Gui, v *gocui.View) error {
 		resbody, err := io.ReadAll(response.Body)
 
 		if err != nil {
-			fmt.Fprintf(responseView, "Error: %s\n", err)
+			red(responseView, "Error: %s\n", err)
 		}
 
-		fmt.Fprintf(responseView, "Status: %s\n\nResponse Body: %s\n", resStatus, resbody)
+		fmt.Fprintf(responseView, "%s\n\n%s\n", yellow(resStatus), green(string(resbody)))
 
 	default:
-		fmt.Fprintf(responseView, "Method not supported: %s\n", method)
+		red(responseView, "Method not supported: %s\n", method)
 	}
 
 	return nil
